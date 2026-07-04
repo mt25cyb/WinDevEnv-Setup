@@ -507,8 +507,74 @@ function Update-AllSoftware {
     }
 }
 
+<#
+.SYNOPSIS
+配置 Docker Desktop WSL2 后端与镜像加速
+#>
+function Initialize-DockerConfig {
+    Write-LogInfo -Message "开始配置 Docker Desktop 运行环境"
+    
+    $dockerSettingsPath = Join-Path -Path $env:APPDATA -ChildPath "Docker\settings.json"
+    $daemonPath = Join-Path -Path $env:USERPROFILE -ChildPath ".docker\daemon.json"
+    
+    # 1. 开启 WSL2 后端
+    try {
+        if (Test-Path -Path $dockerSettingsPath) {
+            $settings = Get-Content -Path $dockerSettingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $settings | Add-Member -MemberType NoteProperty -Name "wslEngineEnabled" -Value $true -Force
+            $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $dockerSettingsPath -Encoding UTF8
+            Write-LogInfo -Message "已启用 Docker WSL2 后端"
+        }
+        else {
+            Write-LogWarn -Message "未找到 Docker 配置文件，将在首次启动后自动生成"
+        }
+    }
+    catch {
+        Write-LogError -Message "配置 Docker WSL2 后端失败" -ErrorRecord $_
+    }
+    
+    # 2. 配置镜像加速
+    try {
+        $daemonDir = Split-Path -Path $daemonPath -Parent
+        if (-not (Test-Path -Path $daemonDir)) {
+            New-Item -Path $daemonDir -ItemType Directory -Force | Out-Null
+        }
+        
+        $mirrors = @(
+            "https://docker.mirrors.ustc.edu.cn",
+            "https://hub-mirror.c.163.com"
+        )
+        
+        if (Test-Path -Path $daemonPath) {
+            $daemon = Get-Content -Path $daemonPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if (-not $daemon.registryMirrors) {
+                $daemon | Add-Member -MemberType NoteProperty -Name "registryMirrors" -Value @() -Force
+            }
+            foreach ($m in $mirrors) {
+                if ($daemon.registryMirrors -notcontains $m) {
+                    $daemon.registryMirrors += $m
+                }
+            }
+        }
+        else {
+            $daemon = @{
+                registryMirrors = $mirrors
+            }
+        }
+        
+        $daemon | ConvertTo-Json -Depth 10 | Set-Content -Path $daemonPath -Encoding UTF8
+        Write-LogInfo -Message "已配置 Docker 国内镜像加速"
+    }
+    catch {
+        Write-LogError -Message "配置 Docker 镜像加速失败" -ErrorRecord $_
+    }
+    
+    Write-LogWarn -Message "Docker 配置已更新，重启 Docker Desktop 后生效"
+}
+
 # 导出模块成员
 Export-ModuleMember -Function Get-SoftwareList, Get-SoftwareStatus, Get-AllSoftwareStatus, Clear-SoftwareStatusCache, Test-WingetAvailable
 # 追加导出函数
 Export-ModuleMember -Function Install-Software, Install-EnabledSoftware
 Export-ModuleMember -Function Update-Software, Update-AllSoftware
+Export-ModuleMember -Function Initialize-DockerConfig
