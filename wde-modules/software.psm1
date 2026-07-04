@@ -574,7 +574,6 @@ function Initialize-DockerConfig {
 
 # 导出模块成员
 Export-ModuleMember -Function Get-SoftwareList, Get-SoftwareStatus, Get-AllSoftwareStatus, Clear-SoftwareStatusCache, Test-WingetAvailable
-# 追加导出函数
 Export-ModuleMember -Function Install-Software, Install-EnabledSoftware
 Export-ModuleMember -Function Update-Software, Update-AllSoftware
 Export-ModuleMember -Function Initialize-DockerConfig
