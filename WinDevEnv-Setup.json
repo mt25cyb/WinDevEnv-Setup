@@ -1,11 +1,115 @@
 {
   "project": {
     "name": "WinDevEnv-Setup",
-    "version": "1.0.0-alpha.1",
+    "version": "1.0.0-alpha.2",
     "author": "",
     "license": "MIT"
   },
-  "software": [],
+  "software": [
+    {
+      "id": "GIT",
+      "name": "Git for Windows",
+      "type": "winget",
+      "wingetId": "Git.Git",
+      "versionCmd": "git --version",
+      "installArgs": "",
+      "isUpdateOnly": false,
+      "hardDependencies": [],
+      "softDependencies": []
+    },
+    {
+      "id": "NODEJS",
+      "name": "Node.js LTS",
+      "type": "winget",
+      "wingetId": "OpenJS.NodeJS.LTS",
+      "versionCmd": "node -v",
+      "installArgs": "",
+      "isUpdateOnly": false,
+      "hardDependencies": [],
+      "softDependencies": []
+    },
+    {
+      "id": "PYTHON",
+      "name": "Python 3.12",
+      "type": "winget",
+      "wingetId": "Python.Python.3.12",
+      "versionCmd": "python --version",
+      "installArgs": "",
+      "isUpdateOnly": false,
+      "hardDependencies": [],
+      "softDependencies": []
+    },
+    {
+      "id": "POWERSHELL7",
+      "name": "PowerShell 7",
+      "type": "winget",
+      "wingetId": "Microsoft.PowerShell",
+      "versionCmd": "pwsh -v",
+      "installArgs": "--installer-type wix",
+      "isUpdateOnly": false,
+      "hardDependencies": [],
+      "softDependencies": []
+    },
+    {
+      "id": "VSCODE",
+      "name": "Visual Studio Code（系统版）",
+      "type": "winget",
+      "wingetId": "Microsoft.VisualStudioCode",
+      "versionCmd": "code --version",
+      "installArgs": "",
+      "isUpdateOnly": false,
+      "hardDependencies": [],
+      "softDependencies": []
+    },
+    {
+      "id": "WINDOWS_TERMINAL",
+      "name": "Windows Terminal",
+      "type": "winget",
+      "wingetId": "Microsoft.WindowsTerminal",
+      "versionCmd": "wt --version",
+      "installArgs": "",
+      "isUpdateOnly": true,
+      "hardDependencies": [],
+      "softDependencies": []
+    },
+    {
+      "id": "OH_MY_POSH",
+      "name": "Oh My Posh",
+      "type": "winget",
+      "wingetId": "JanDeDobbeleer.OhMyPosh",
+      "versionCmd": "oh-my-posh --version",
+      "installArgs": "",
+      "isUpdateOnly": false,
+      "hardDependencies": ["WINDOWS_TERMINAL"],
+      "softDependencies": []
+    },
+    {
+      "id": "WSL2",
+      "name": "WSL 2 + Ubuntu",
+      "type": "windowsFeature",
+      "features": [
+        "Microsoft-Windows-Subsystem-Linux",
+        "VirtualMachinePlatform"
+      ],
+      "postCommand": "wsl --install --distribution Ubuntu",
+      "versionCmd": "wsl --version",
+      "isUpdateOnly": false,
+      "hardDependencies": [],
+      "softDependencies": [],
+      "requireReboot": true
+    },
+    {
+      "id": "DOCKER_DESKTOP",
+      "name": "Docker Desktop",
+      "type": "winget",
+      "wingetId": "Docker.DockerDesktop",
+      "versionCmd": "docker --version",
+      "installArgs": "",
+      "isUpdateOnly": false,
+      "hardDependencies": ["WSL2"],
+      "softDependencies": []
+    }
+  ],
   "fonts": [],
   "themes": [],
   "mirrors": {
