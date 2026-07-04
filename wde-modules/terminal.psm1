@@ -340,6 +340,100 @@ function Apply-PsProfileConfig {
     Write-LogInfo -Message "PowerShell 双版本配置已应用"
 }
 
+<#
+.SYNOPSIS
+获取 Windows Terminal 配置文件路径
+#>
+function Get-WtConfigPath {
+    return [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json")
+}
+
+<#
+.SYNOPSIS
+配置 Windows Terminal 字体
+#>
+function Set-WtFontConfig {
+    param([string]$FontName = "JetBrainsMono NF")
+    
+    $configPath = Get-WtConfigPath
+    
+    if (-not (Test-Path -Path $configPath)) {
+        Write-LogWarn -Message "未找到 Windows Terminal 配置文件，将在首次启动后生成"
+        return $false
+    }
+    
+    try {
+        # 备份原配置
+        New-BackupItem -Path $configPath | Out-Null
+        
+        $config = Get-Content -Path $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        
+        # 写入默认字体
+        if (-not $config.profiles) {
+            $config | Add-Member -MemberType NoteProperty -Name "profiles" -Value @{} -Force
+        }
+        if (-not $config.profiles.defaults) {
+            $config.profiles | Add-Member -MemberType NoteProperty -Name "defaults" -Value @{} -Force
+        }
+        if (-not $config.profiles.defaults.font) {
+            $config.profiles.defaults | Add-Member -MemberType NoteProperty -Name "font" -Value @{} -Force
+        }
+        
+        $config.profiles.defaults.font | Add-Member -MemberType NoteProperty -Name "face" -Value $FontName -Force
+        
+        $config | ConvertTo-Json -Depth 20 | Set-Content -Path $configPath -Encoding UTF8
+        Write-LogInfo -Message ("Windows Terminal 字体已设置为: {0}" -f $FontName)
+        return $true
+    }
+    catch {
+        Write-LogError -Message "Windows Terminal 配置修改失败" -ErrorRecord $_
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+迁移 WT 配置到便携源目录（软链接模式启用时执行）
+#>
+function Migrate-WtConfigToPortable {
+    $sourceDir = "./profiles/windows-terminal"
+    $systemDir = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState")
+    
+    if (-not (Test-Path -Path $sourceDir)) {
+        New-Item -Path $sourceDir -ItemType Directory -Force | Out-Null
+    }
+    
+    # 系统侧有配置且源目录为空时，迁移过去
+    if ((Test-Path -Path $systemDir) -and (Get-ChildItem -Path $sourceDir | Measure-Object).Count -eq 0) {
+        Write-LogInfo -Message "迁移现有 Windows Terminal 配置到便携目录"
+        Copy-Item -Path (Join-Path -Path $systemDir -ChildPath "*") -Destination $sourceDir -Recurse -Force
+    }
+}
+
+<#
+.SYNOPSIS
+应用 Windows Terminal 完整配置（自动判断模式）
+#>
+function Apply-WtConfig {
+    $envConfig = Get-EnvConfig
+    $fontId = $envConfig.OMP_FONT
+    
+    $staticConfig = Get-StaticConfig
+    $font = $staticConfig.fonts | Where-Object { $_.id -eq $fontId }
+    if (-not $font) {
+        $font = $staticConfig.fonts[0]
+    }
+    
+    if ($envConfig.ENABLE_WT_PORTABLE -eq $true) {
+        Migrate-WtConfigToPortable
+        Write-LogInfo -Message "便携化模式：WT 配置已同步到源目录，软链接生效"
+    }
+    else {
+        Set-WtFontConfig -FontName $font.name
+    }
+}
+
 # 导出模块成员
 Export-ModuleMember -Function Install-OmpFont, Install-OmpTheme, Get-ThemeLocalPath
 Export-ModuleMember -Function Install-PsModules, Apply-PsProfileConfig, Remove-ManagedProfileBlock
+Export-ModuleMember -Function Apply-WtConfig, Set-WtFontConfig, Get-WtConfigPath
