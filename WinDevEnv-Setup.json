@@ -1,7 +1,7 @@
 {
   "project": {
     "name": "WinDevEnv-Setup",
-    "version": "1.0.0-alpha.2",
+    "version": "1.0.0-alpha.3",
     "author": "",
     "license": "MIT"
   },
@@ -110,13 +110,106 @@
       "softDependencies": []
     }
   ],
-  "fonts": [],
-  "themes": [],
+  "fonts": [
+    { "id": "JetBrainsMono", "name": "JetBrains Mono NF", "installName": "JetBrainsMono" },
+    { "id": "Monaco", "name": "Monaco NF", "installName": "Monaco" },
+    { "id": "SourceCodePro", "name": "Source Code Pro NF", "installName": "SourceCodePro" },
+    { "id": "FiraCode", "name": "Fira Code NF", "installName": "FiraCode" },
+    { "id": "CascadiaCode", "name": "Cascadia Code NF", "installName": "CascadiaCode" },
+    { "id": "Inconsolata", "name": "Inconsolata NF", "installName": "Inconsolata" },
+    { "id": "UbuntuMono", "name": "Ubuntu Mono NF", "installName": "UbuntuMono" }
+  ],
+  "themes": [
+    { "id": "1_shell", "fileName": "1_shell.omp.json" },
+    { "id": "M365Princess", "fileName": "M365Princess.omp.json" },
+    { "id": "atomic", "fileName": "atomic.omp.json" },
+    { "id": "blue-owl", "fileName": "blue-owl.omp.json" },
+    { "id": "blueish", "fileName": "blueish.omp.json" },
+    { "id": "catppuccin", "fileName": "catppuccin.omp.json" },
+    { "id": "fish", "fileName": "fish.omp.json" },
+    { "id": "iterm2", "fileName": "iterm2.omp.json" },
+    { "id": "jandedobbeleer", "fileName": "jandedobbeleer.omp.json" },
+    { "id": "marcduiker", "fileName": "marcduiker.omp.json" },
+    { "id": "powerlevel10k_classic", "fileName": "powerlevel10k_classic.omp.json" },
+    { "id": "powerlevel10k_rainbow", "fileName": "powerlevel10k_rainbow.omp.json" },
+    { "id": "powerline", "fileName": "powerline.omp.json" },
+    { "id": "quick-term", "fileName": "quick-term.omp.json" },
+    { "id": "rudolfs-dark", "fileName": "rudolfs-dark.omp.json" },
+    { "id": "rudolfs-light", "fileName": "rudolfs-light.omp.json" },
+    { "id": "slim", "fileName": "slim.omp.json" },
+    { "id": "slimfat", "fileName": "slimfat.omp.json" },
+    { "id": "tokyo", "fileName": "tokyo.omp.json" },
+    { "id": "unicorn", "fileName": "unicorn.omp.json" },
+    { "id": "wholespace", "fileName": "wholespace.omp.json" }
+  ],
   "mirrors": {
-    "winget": [],
-    "github": []
+    "winget": [
+      { "id": "official", "name": "微软官方源", "url": "https://cdn.winget.microsoft.com/catalog" },
+      { "id": "ustc", "name": "中科大 USTC", "url": "https://mirrors.ustc.edu.cn/winget-source", "default": true },
+      { "id": "cernet", "name": "教育网 CERNET", "url": "https://mirrors.cernet.edu.cn/winget-source" },
+      { "id": "nju", "name": "南京大学 NJU", "url": "https://mirror.nju.edu.cn/winget-source" },
+      { "id": "xjtu", "name": "西安交大 XJTU", "url": "https://mirrors.xjtu.edu.cn/winget-source" },
+      { "id": "nyist", "name": "南阳理工 NYIST", "url": "https://mirror.nyist.edu.cn/winget-source" }
+    ],
+    "github": [
+      { "id": "official", "name": "GitHub 原生", "prefix": "https://raw.githubusercontent.com/", "default": false },
+      { "id": "ghproxy", "name": "ghproxy", "prefix": "https://ghproxy.com/https://raw.githubusercontent.com/", "default": true },
+      { "id": "ghproxy-mirror", "name": "ghproxy 镜像", "prefix": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/" },
+      { "id": "shturl1", "name": "shturl 节点1", "prefix": "https://shturl.cc/quyylGUBmOO/" },
+      { "id": "shturl2", "name": "shturl 节点2", "prefix": "https://shturl.cc/WcOEJLg6AGARGo4N26/" }
+    ]
   },
-  "symlinks": [],
+  "symlinks": [
+    {
+      "id": "vscode-userdata",
+      "switchKey": "ENABLE_VSCODE_PORTABLE",
+      "source": "./profiles/vscode/user-data",
+      "target": "%APPDATA%\\Code",
+      "isFile": false
+    },
+    {
+      "id": "vscode-extensions",
+      "switchKey": "ENABLE_VSCODE_PORTABLE",
+      "source": "./profiles/vscode/extensions",
+      "target": "%USERPROFILE%\\.vscode\\extensions",
+      "isFile": false
+    },
+    {
+      "id": "vscode-shared",
+      "switchKey": "ENABLE_VSCODE_PORTABLE",
+      "source": "./profiles/vscode/shared-data",
+      "target": "%USERPROFILE%\\.vscode-shared",
+      "isFile": false
+    },
+    {
+      "id": "omp-themes",
+      "switchKey": "ENABLE_OMP_THEMES_PORTABLE",
+      "source": "./profiles/omp-themes",
+      "target": "%USERPROFILE%\\.config\\oh-my-posh\\themes",
+      "isFile": false
+    },
+    {
+      "id": "wt-config",
+      "switchKey": "ENABLE_WT_PORTABLE",
+      "source": "./profiles/windows-terminal",
+      "target": "%LOCALAPPDATA%\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState",
+      "isFile": false
+    },
+    {
+      "id": "pwsh-profile-5",
+      "switchKey": "ENABLE_PWSH_PROFILE_PORTABLE",
+      "source": "./profiles/pwsh-data/Microsoft.PowerShell_profile_5.ps1",
+      "target": "%USERPROFILE%\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
+      "isFile": true
+    },
+    {
+      "id": "pwsh-profile-7",
+      "switchKey": "ENABLE_PWSH_PROFILE_PORTABLE",
+      "source": "./profiles/pwsh-data/Microsoft.PowerShell_profile_7.ps1",
+      "target": "%USERPROFILE%\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1",
+      "isFile": true
+    }
+  ],
   "paths": {
     "logDir": "./logs",
     "profileDir": "./profiles",
