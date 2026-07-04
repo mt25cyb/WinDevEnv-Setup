@@ -433,7 +433,131 @@ function Apply-WtConfig {
     }
 }
 
+<#
+.SYNOPSIS
+检测 VSCode 是否正在运行
+#>
+function Test-VscodeRunning {
+    $processes = Get-Process -Name Code -ErrorAction SilentlyContinue
+    return $null -ne $processes
+}
+
+<#
+.SYNOPSIS
+初始化源目录/文件
+#>
+function Initialize-SymlinkSources {
+    $staticConfig = Get-StaticConfig
+    $envConfig = Get-EnvConfig
+    
+    foreach ($link in $staticConfig.symlinks) {
+        $enabled = $envConfig[$link.switchKey] -eq $true
+        if (-not $enabled) { continue }
+        
+        $source = [System.IO.Path]::GetFullPath((Join-Path -Path (Get-Location) -ChildPath $link.source))
+        
+        if (-not (Test-Path -Path $source)) {
+            if ($link.isFile) {
+                $dir = Split-Path -Path $source -Parent
+                if (-not (Test-Path -Path $dir)) {
+                    New-Item -Path $dir -ItemType Directory -Force | Out-Null
+                }
+                New-Item -Path $source -ItemType File -Force | Out-Null
+                Write-LogInfo -Message ("已创建源文件: {0}" -f $source)
+            }
+            else {
+                New-Item -Path $source -ItemType Directory -Force | Out-Null
+                Write-LogInfo -Message ("已创建源目录: {0}" -f $source)
+            }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+创建所有已开启开关的软链接
+#>
+function New-EnabledSymlinks {
+    $staticConfig = Get-StaticConfig
+    $envConfig = Get-EnvConfig
+    
+    # VSCode 软链接前置检测
+    if ($envConfig.ENABLE_VSCODE_PORTABLE -eq $true -and (Test-VscodeRunning)) {
+        Write-LogWarn -Message "检测到 VSCode 正在运行，请关闭后再创建软链接，否则可能失败"
+        return $false
+    }
+    
+    Initialize-SymlinkSources
+    
+    $successCount = 0
+    $failCount = 0
+    
+    foreach ($link in $staticConfig.symlinks) {
+        $enabled = $envConfig[$link.switchKey] -eq $true
+        if (-not $enabled) { continue }
+        
+        $target = [System.Environment]::ExpandEnvironmentVariables($link.target)
+        $ok = New-Symlink -SourcePath $link.source -TargetPath $target -IsFile:$link.isFile
+        
+        if ($ok) {
+            $successCount++
+        }
+        else {
+            $failCount++
+        }
+    }
+    
+    Write-LogInfo -Message ("软链接批量创建完成：成功 {0} 个，失败 {1} 个" -f $successCount, $failCount)
+    return $failCount -eq 0
+}
+
+<#
+.SYNOPSIS
+移除所有已开启开关的软链接，保留备份
+#>
+function Remove-EnabledSymlinks {
+    $staticConfig = Get-StaticConfig
+    $envConfig = Get-EnvConfig
+    
+    foreach ($link in $staticConfig.symlinks) {
+        $enabled = $envConfig[$link.switchKey] -eq $true
+        if (-not $enabled) { continue }
+        
+        $target = [System.Environment]::ExpandEnvironmentVariables($link.target)
+        Remove-Symlink -Path $target
+    }
+    
+    Write-LogInfo -Message "已解除所有启用的软链接"
+}
+
+<#
+.SYNOPSIS
+获取所有软链接状态
+#>
+function Get-AllSymlinkStatus {
+    $staticConfig = Get-StaticConfig
+    $result = @()
+    
+    foreach ($link in $staticConfig.symlinks) {
+        $target = [System.Environment]::ExpandEnvironmentVariables($link.target)
+        $state = Test-Symlink -Path $target
+        $result += @{
+            id = $link.id
+            target = $target
+            source = $link.source
+            isFile = $link.isFile
+            switchKey = $link.switchKey
+            exists = $state.Exists
+            isSymlink = $state.IsSymlink
+            linkTarget = $state.Target
+        }
+    }
+    
+    return $result
+}
+
 # 导出模块成员
 Export-ModuleMember -Function Install-OmpFont, Install-OmpTheme, Get-ThemeLocalPath
 Export-ModuleMember -Function Install-PsModules, Apply-PsProfileConfig, Remove-ManagedProfileBlock
 Export-ModuleMember -Function Apply-WtConfig, Set-WtFontConfig, Get-WtConfigPath
+Export-ModuleMember -Function New-EnabledSymlinks, Remove-EnabledSymlinks, Get-AllSymlinkStatus, Initialize-SymlinkSources
