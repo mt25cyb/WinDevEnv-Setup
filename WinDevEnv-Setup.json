@@ -1,0 +1,21 @@
+{
+  "project": {
+    "name": "WinDevEnv-Setup",
+    "version": "1.0.0-alpha.1",
+    "author": "",
+    "license": "MIT"
+  },
+  "software": [],
+  "fonts": [],
+  "themes": [],
+  "mirrors": {
+    "winget": [],
+    "github": []
+  },
+  "symlinks": [],
+  "paths": {
+    "logDir": "./logs",
+    "profileDir": "./profiles",
+    "assetsDir": "./wde-assets"
+  }
+}

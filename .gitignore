@@ -1,0 +1,29 @@
+# 运行时生成文件
+logs/
+*.log
+*.tmp
+*.temp
+
+# 忽略可能包含个人信息的文件
+WinDevEnv-Setup.env
+
+# 用户资产目录（保留空目录结构，忽略实际数据）
+profiles/*/*
+!profiles/**/.gitkeep
+
+# 快照与备份数据
+Backups/
+_backups/
+*.bak
+*.reg
+
+# 3. 系统与编辑器杂项
+# ==============================
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.tmp
+
+# 4. 方便工具
+merge_files_to_md.*
