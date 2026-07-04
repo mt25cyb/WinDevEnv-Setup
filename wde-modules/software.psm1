@@ -397,7 +397,118 @@ function Install-EnabledSoftware {
     }
 }
 
+<#
+.SYNOPSIS
+更新单个 winget 软件
+#>
+function Update-WingetSoftware {
+    param([object]$Software)
+    
+    $name = $Software.name
+    Write-LogInfo -Message ("开始更新 {0}" -f $name)
+    
+    $cmdArgs = "upgrade --id $($Software.wingetId) --source winget --silent --accept-package-agreements --accept-source-agreements"
+    
+    $success = Invoke-WithRetry -ScriptBlock {
+        winget $cmdArgs.Split(" ") 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq -1978335189) {
+            return $true
+        }
+        throw "更新退出码: $LASTEXITCODE"
+    } -MaxRetries 2 -OperationName "更新 $name"
+    
+    if ($success) {
+        Clear-SoftwareStatusCache
+        Update-EnvironmentPath
+        Write-LogInfo -Message ("{0} 更新成功" -f $name)
+        return $true
+    }
+    else {
+        Write-LogError -Message ("{0} 更新失败" -f $name)
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+更新单个软件（统一入口）
+#>
+function Update-Software {
+    param([string]$SoftwareId)
+    
+    $allSoftware = Get-SoftwareList
+    $software = $allSoftware | Where-Object { $_.id -eq $SoftwareId }
+    
+    if (-not $software) {
+        Write-LogError -Message ("软件ID不存在: {0}" -f $SoftwareId)
+        return $false
+    }
+    
+    # 检测状态
+    $status = Get-SoftwareStatus -SoftwareId $SoftwareId
+    if ($status.status -eq "notInstalled") {
+        Write-LogWarn -Message ("{0} 未安装，无法更新" -f $software.name)
+        return $false
+    }
+    if ($status.status -eq "latest") {
+        Write-LogInfo -Message ("{0} 已是最新版本" -f $software.name)
+        return $true
+    }
+    
+    # Windows 功能不支持单独更新
+    if ($software.type -eq "windowsFeature") {
+        Write-LogInfo -Message ("{0} 为系统功能组件，无需单独更新" -f $software.name)
+        return $true
+    }
+    
+    switch ($software.type) {
+        "winget" {
+            return Update-WingetSoftware -Software $software
+        }
+        default {
+            Write-LogError -Message ("不支持的软件类型: {0}" -f $software.type)
+            return $false
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+批量更新所有已安装且可更新的软件
+#>
+function Update-AllSoftware {
+    $allStatus = Get-AllSoftwareStatus -ForceRefresh
+    $updatable = $allStatus | Where-Object { $_.status -eq "updatable" }
+    
+    if ($updatable.Count -eq 0) {
+        Write-LogInfo -Message "所有软件均为最新版本，无需更新"
+        return
+    }
+    
+    Write-LogInfo -Message ("共 {0} 个组件可更新，开始执行" -f $updatable.Count)
+    
+    $failedItems = @()
+    $successItems = @()
+    
+    foreach ($item in $updatable) {
+        $ok = Update-Software -SoftwareId $item.id
+        
+        if ($ok) {
+            $successItems += $item.id
+        }
+        else {
+            $failedItems += $item.id
+        }
+    }
+    
+    Write-LogInfo -Message ("批量更新完成：成功 {0} 个，失败 {1} 个" -f $successItems.Count, $failedItems.Count)
+    if ($failedItems.Count -gt 0) {
+        Write-LogWarn -Message ("失败组件: {0}" -f ($failedItems -join ", "))
+    }
+}
+
 # 导出模块成员
 Export-ModuleMember -Function Get-SoftwareList, Get-SoftwareStatus, Get-AllSoftwareStatus, Clear-SoftwareStatusCache, Test-WingetAvailable
 # 追加导出函数
 Export-ModuleMember -Function Install-Software, Install-EnabledSoftware
+Export-ModuleMember -Function Update-Software, Update-AllSoftware
