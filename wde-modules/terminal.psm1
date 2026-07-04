@@ -144,5 +144,202 @@ function Get-ThemeLocalPath {
     return [System.IO.Path]::GetFullPath((Join-Path -Path "./profiles/omp-themes" -ChildPath $theme.fileName))
 }
 
+<#
+.SYNOPSIS
+安装 PowerShell 美化模块
+#>
+function Install-PsModules {
+    $envConfig = Get-EnvConfig
+    
+    # 信任 PSGallery
+    try {
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -Scope CurrentUser -ErrorAction Stop
+    }
+    catch {
+        Write-LogWarn -Message "PSGallery 信任设置失败，安装模块可能需要手动确认"
+    }
+    
+    # Terminal-Icons 与 oh-my-posh 绑定
+    if ($envConfig.ENABLE_TERMINAL_ICONS -eq $true) {
+        Write-LogInfo -Message "安装 Terminal-Icons 模块"
+        try {
+            Install-Module Terminal-Icons -Scope CurrentUser -Force -ErrorAction Stop
+            Write-LogInfo -Message "Terminal-Icons 安装成功"
+        }
+        catch {
+            Write-LogError -Message "Terminal-Icons 安装失败" -ErrorRecord $_
+        }
+    }
+    
+    # posh-git 依赖 Git + oh-my-posh
+    if ($envConfig.ENABLE_POSH_GIT -eq $true) {
+        $gitStatus = Get-SoftwareStatus -SoftwareId "GIT"
+        $ompStatus = Get-SoftwareStatus -SoftwareId "OH_MY_POSH"
+        
+        if ($gitStatus.status -ne "notInstalled" -and $ompStatus.status -ne "notInstalled") {
+            Write-LogInfo -Message "安装 posh-git 模块"
+            try {
+                Install-Module posh-git -Scope CurrentUser -Force -ErrorAction Stop
+                Write-LogInfo -Message "posh-git 安装成功"
+            }
+            catch {
+                Write-LogError -Message "posh-git 安装失败" -ErrorRecord $_
+            }
+        }
+        else {
+            Write-LogWarn -Message "Git 或 Oh My Posh 未安装，跳过 posh-git 安装"
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+生成标准化 PS 配置内容（区分版本）
+#>
+function Get-StandardPsProfile {
+    param([int]$PsVersion = 5)
+    
+    $themeId = (Get-EnvConfig).OMP_DEFAULT_THEME
+    $themePath = Get-ThemeLocalPath -ThemeId $themeId
+    
+    $lines = @()
+    $lines += "# ========== WinDevEnv-Setup 托管配置 =========="
+    $lines += ""
+    $lines += "# 1. Oh My Posh 初始化"
+    $lines += "oh-my-posh init pwsh --config `"$themePath`" | Invoke-Expression"
+    $lines += ""
+    $lines += "# 2. PSReadLine 历史与补全"
+    $lines += "Import-Module PSReadLine"
+    $lines += "Set-PSReadLineOption -HistorySearchCursorMovesToEnd"
+    $lines += "Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward"
+    $lines += "Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward"
+    $lines += "Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete"
+    
+    if ($PsVersion -ge 7) {
+        $lines += "Set-PSReadLineOption -PredictionSource History"
+        $lines += "Set-PSReadLineOption -PredictionViewStyle ListView"
+    }
+    else {
+        $lines += "Set-PSReadLineOption -PredictionSource History"
+    }
+    
+    $lines += ""
+    $lines += "# 3. 终端图标与 Git 集成"
+    $lines += "Import-Module Terminal-Icons -ErrorAction SilentlyContinue"
+    $lines += "Import-Module posh-git -ErrorAction SilentlyContinue"
+    $lines += ""
+    $lines += "# 4. 常用别名"
+    $lines += "Set-Alias ll Get-ChildItem"
+    $lines += "Set-Alias which Get-Command"
+    $lines += "Set-Alias grep Select-String"
+    $lines += ""
+    $lines += "# ========== 用户自定义区域开始 =========="
+    $lines += "# 在此处添加您的自定义配置，更新工具不会覆盖此区域"
+    $lines += "# ========== 用户自定义区域结束 =========="
+    
+    return $lines -join "`r`n"
+}
+
+<#
+.SYNOPSIS
+写入托管标记块（非软链接模式使用）
+#>
+function Set-ManagedProfileBlock {
+    param(
+        [string]$ProfilePath,
+        [int]$PsVersion = 5
+    )
+    
+    $startMarker = "# >>> WinDevEnv-Setup Managed Start >>>"
+    $endMarker = "# <<< WinDevEnv-Setup Managed End <<<"
+    $content = Get-StandardPsProfile -PsVersion $PsVersion
+    
+    # 确保目录存在
+    $profileDir = Split-Path -Path $ProfilePath -Parent
+    if (-not (Test-Path -Path $profileDir)) {
+        New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
+    }
+    
+    if (Test-Path -Path $ProfilePath) {
+        $existing = Get-Content -Path $ProfilePath -Raw -Encoding UTF8
+    }
+    else {
+        $existing = ""
+    }
+    
+    # 移除旧的托管块
+    $regex = [regex]::new([regex]::Escape($startMarker) + "[\s\S]*?" + [regex]::Escape($endMarker), [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    $existing = $regex.Replace($existing, "")
+    $existing = $existing.Trim()
+    
+    # 追加新托管块
+    $newContent = @(
+        $startMarker,
+        $content,
+        $endMarker,
+        "",
+        $existing
+    ) -join "`r`n"
+    
+    Set-Content -Path $ProfilePath -Value $newContent -Encoding UTF8
+    Write-LogInfo -Message ("已更新配置文件: {0}" -f $ProfilePath)
+}
+
+<#
+.SYNOPSIS
+移除托管标记块
+#>
+function Remove-ManagedProfileBlock {
+    param([string]$ProfilePath)
+    
+    if (-not (Test-Path -Path $ProfilePath)) {
+        return
+    }
+    
+    $startMarker = "# >>> WinDevEnv-Setup Managed Start >>>"
+    $endMarker = "# <<< WinDevEnv-Setup Managed End <<<"
+    
+    $content = Get-Content -Path $ProfilePath -Raw -Encoding UTF8
+    $regex = [regex]::new([regex]::Escape($startMarker) + "[\s\S]*?" + [regex]::Escape($endMarker) + "`r?`n?", [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    $content = $regex.Replace($content, "").Trim()
+    
+    Set-Content -Path $ProfilePath -Value $content -Encoding UTF8
+    Write-LogInfo -Message ("已移除托管配置: {0}" -f $ProfilePath)
+}
+
+<#
+.SYNOPSIS
+应用 PowerShell 双版本配置（自动判断软链接模式）
+#>
+function Apply-PsProfileConfig {
+    $envConfig = Get-EnvConfig
+    $usePortable = $envConfig.ENABLE_PWSH_PROFILE_PORTABLE -eq $true
+    
+    $profile5 = [System.Environment]::ExpandEnvironmentVariables("%USERPROFILE%\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1")
+    $profile7 = [System.Environment]::ExpandEnvironmentVariables("%USERPROFILE%\Documents\PowerShell\Microsoft.PowerShell_profile.ps1")
+    $source5 = "./profiles/pwsh-data/Microsoft.PowerShell_profile_5.ps1"
+    $source7 = "./profiles/pwsh-data/Microsoft.PowerShell_profile_7.ps1"
+    
+    if ($usePortable) {
+        Write-LogInfo -Message "便携化模式：写入源配置文件"
+        # 确保源目录存在
+        $sourceDir = Split-Path -Path $source5 -Parent
+        if (-not (Test-Path -Path $sourceDir)) {
+            New-Item -Path $sourceDir -ItemType Directory -Force | Out-Null
+        }
+        # 写入源文件
+        Set-Content -Path $source5 -Value (Get-StandardPsProfile -PsVersion 5) -Encoding UTF8
+        Set-Content -Path $source7 -Value (Get-StandardPsProfile -PsVersion 7) -Encoding UTF8
+    }
+    else {
+        Write-LogInfo -Message "传统模式：写入系统侧托管块"
+        Set-ManagedProfileBlock -ProfilePath $profile5 -PsVersion 5
+        Set-ManagedProfileBlock -ProfilePath $profile7 -PsVersion 7
+    }
+    
+    Write-LogInfo -Message "PowerShell 双版本配置已应用"
+}
+
 # 导出模块成员
 Export-ModuleMember -Function Install-OmpFont, Install-OmpTheme, Get-ThemeLocalPath
+Export-ModuleMember -Function Install-PsModules, Apply-PsProfileConfig, Remove-ManagedProfileBlock
